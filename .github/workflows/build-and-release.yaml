@@ -113,6 +113,10 @@ jobs:
 
       - name: Copy manifest file
         run: |
+          # The directory exists in the clone only for a plugin that has been published
+          # before, so without this the very first release of a new plugin dies here on a
+          # cp that cannot create the file - which is exactly what 0.1.0.0 did.
+          mkdir -p "./nina.plugin.manifests/manifests/${{ env.PLUGIN_MANIFEST_PATH }}"
           cp "./${{ env.PLUGIN_DLL_NAME }}.${{ github.ref_name }}.manifest.json" "./nina.plugin.manifests/manifests/${{ env.PLUGIN_MANIFEST_PATH }}/manifest.${{ github.ref_name }}.json"
           cd nina.plugin.manifests
           git add .
