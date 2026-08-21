@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputType>Library</OutputType>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NINA Plugin SDK (NuGet) -->
+    <PackageReference Include="NINA.Plugin" Version="3.2.0.9001" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- WebView2 is not referenced here on purpose: NINA.WPF.Base already brings it, and
+         pinning a version of our own only creates a conflict with the host. -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="manifest.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Local development convenience: drop the build straight into NINA's plugin folder.
+       Only this plugin's own files: copying the whole output directory would drag NINA's
+       own assemblies in beside it, which is how a plugin ends up loading a second copy of
+       the host's libraries. Everything this plugin needs beyond its own DLL - Newtonsoft,
+       the MVVM toolkit - already ships with NINA.
+       The release workflow suppresses this with -p:PostBuildEvent= so CI never copies. -->
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <PropertyGroup>
+      <NinaPluginDir>$(LOCALAPPDATA)\NINA\Plugins\3.0.0\OpenCode\</NinaPluginDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(NinaPluginDir)" />
+    <!-- WarnAndContinue rather than true: N.I.N.A. holds the assembly open while it is
+         running, so the copy fails and the build still says "succeeded" - leaving the old
+         plugin in place and a developer testing a build that was never installed. The
+         warning is the difference between confusion and closing N.I.N.A. -->
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb;$(TargetDir)manifest.json;$(TargetDir)icon.png"
+          DestinationFolder="$(NinaPluginDir)"
+          SkipUnchangedFiles="false"
+          ContinueOnError="WarnAndContinue" />
+  </Target>
+</Project>

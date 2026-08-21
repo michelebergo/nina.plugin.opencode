@@ -1,0 +1,15 @@
+<ResourceDictionary
+    x:Class="NINA.Plugin.OpenCode.OpenCodeChatTemplate"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:NINA.Plugin.OpenCode">
+
+    <local:InverseBooleanToVisibilityConverter x:Key="OpenCodeInverseBoolToVisibility" />
+
+    <!-- The dock panel is opencode's own interface, hosted. Everything a chat panel would
+         have to draw - the conversation, tool calls and their output, permission prompts,
+         the token and cost readout - is drawn by opencode, which is also where it changes. -->
+    <DataTemplate DataType="{x:Type local:OpenCodeChatVM}">
+        <local:OpenCodeTerminalView />
+    </DataTemplate>
+</ResourceDictionary>

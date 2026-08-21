@@ -1,0 +1,41 @@
+{
+  "Identifier": "75c31a01-6606-4cff-9703-4ee53c2f4e44",
+  "Name": "OpenCode",
+  "Version": "0.1.0.0",
+  "MinimumApplicationVersion": "3.0.0.0",
+  "Author": "Michele Bergo",
+  "Homepage": "https://github.com/michelebergo/nina.plugin.opencode",
+  "Repository": "https://github.com/michelebergo/nina.plugin.opencode",
+  "License": "MPL-2.0",
+  "LicenseURL": "https://www.mozilla.org/en-US/MPL/2.0/",
+  "Tags": [
+    "AI",
+    "Agent",
+    "opencode",
+    "Automation",
+    "MCP",
+    "Assistant"
+  ],
+  "Description": {
+    "short": {
+      "EN": "A panel for the opencode agent you already run: ask it to work on your observatory, and approve every tool call before it happens"
+    },
+    "long": {
+      "EN": "A seat inside NINA for opencode, the open-source AI agent.\n\nThis plugin does not contain an AI and does not install one. It talks to an opencode server that you install and configure yourself, which means your models, your keys, your agents and your MCP servers - including the ones that already speak to NINA - all keep working exactly as they do in your terminal.\n\nWHAT IT GIVES YOU\n- The agent, in a NINA dock panel: ask a question or hand it a job while you are imaging, without leaving NINA and without a terminal.\n- Every permission request in front of you. opencode asks before it runs a command, edits a file or uses a tool; this panel is where you answer. Nothing runs unseen.\n- The agent's own questions, answered in the same place.\n- Interrupt at any time.\n- Two ways to connect: launch a local opencode server from the executable on this machine, or attach to one already running elsewhere - on the observatory PC, for instance, while you sit at another.\n- Three agents, differing in permissions rather than in tone: observer reads and explains, copilot acts and stops for your approval first, and autopilot is the unattended one - every permission decided in advance, and a short list of actions that recover a night (restart guiding, plate solve and recentre, stop or start the sequence, set tracking, park the mount, close the shutter). It cannot slew, unpark, open a shutter, throw a switch or connect a device.\n- An observatory log: equipment state changes, autofocus runs and one line per saved frame, written to a file per night. It moves nothing and calls no model, and the agent can read it, so a diagnosis starts from what happened rather than from what is happening now.\n\nWHAT YOU NEED FIRST\nopencode, installed by you: https://opencode.ai. The plugin will not download it, will not update it and will not manage it. If opencode is not there, the panel says so and does nothing else.\n\nWHY IT IS SEPARATE FROM THE AI ASSISTANT PLUGIN\nThe AI Assistant plugin is self-contained: it holds its own providers, its own keys and its own tool loop. This one holds none of that on purpose. It is for people who already run opencode and would rather have one agent, configured once, reachable from where they work.\n\nWHAT IT DOES NOT DO YET\nNothing wakes the agent up. The autopilot agent exists and its policy is enforced, but no event triggers it: there is no classifier deciding what deserves a turn, no counters bounding how often it may act, and no notification when it stops. Chosen by hand it behaves as described; left to itself it does nothing. Unattended operation is being built in that order on purpose - the log first, so that what the agent should react to is decided from what your observatory actually does."
+    }
+  },
+  "ChangeLog": [
+    {
+      "Version": "0.1.0.0",
+      "Date": "2026-08-20",
+      "Changes": [
+        "First release. A dock panel that connects to an opencode server you installed yourself, either by launching one locally or by attaching to one already running on another machine",
+        "Every permission the agent is waiting on appears at the top of the panel with Allow once, Always and Reject - the agent does not run a command, edit a file or use a tool until somebody answers",
+        "Interrupt a running turn at any time",
+        "A launched server binds to 127.0.0.1 and carries a password only if you set one. Generating one per launch was tried and removed: the embedded browser never answered the challenge, so the panel took a 401 and stayed blank while an invented credential sat in memory where nobody could type it. What keeps the server private is the address it listens on",
+        "Three agents rather than two. observer reads and explains, copilot acts and asks first, and autopilot runs unattended: its permissions are all decided in advance with no \"ask\" anywhere, because with nobody at the keyboard a prompt is not caution, it is a session that stops at three in the morning. It may restart guiding, plate solve and recentre, stop or start the sequence, set tracking, and park the mount and close the shutter - and nothing else. It cannot slew, unpark, open a shutter, throw a switch or connect a device",
+        "Observatory log: the plugin records equipment state changes and one line per saved frame into its own folder, one file per night. It moves nothing and calls no model. It is there so that what an unattended agent should react to can be decided from what this observatory actually does, rather than from a plausible list of events"
+      ]
+    }
+  ]
+}
