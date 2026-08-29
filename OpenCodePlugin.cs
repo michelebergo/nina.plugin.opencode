@@ -1,4 +1,4 @@
-using NINA.Core.Utility;
+﻿using NINA.Core.Utility;
 using NINA.Equipment.Interfaces.Mediator;
 using NINA.Plugin;
 using NINA.Plugin.Interfaces;
@@ -227,27 +227,37 @@ namespace NINA.Plugin.OpenCode {
         }
 
         /// <summary>
-        /// What the options page says under the path box, and the only place the automatic
-        /// search becomes visible: a plugin that quietly found the file should say where,
-        /// and one that did not should say what to do about it.
+        /// What the options page says under the path box.
+        ///
+        /// It used to report a file the plugin had found by searching the user's own
+        /// directories for anything named nina_advanced_mcp.py. That search is gone, so the
+        /// two cases left are the copy someone named here and the pinned release the plugin
+        /// fetches itself - and the difference is worth stating, because only one of the two
+        /// is checked against a known commit.
         /// </summary>
         public string NinaMcpStatus {
             get {
                 var configured = NinaMcpServerPath;
                 var found = OpenCode.NinaWorkspace.LocateMcpServer(configured);
 
-                if (found != null && string.IsNullOrWhiteSpace(configured)) {
-                    return $"Found automatically at {found} - it will be registered on connect.";
+                if (string.IsNullOrWhiteSpace(configured)) {
+                    return $"{OpenCode.NinaWorkspace.McpServerTag} will be fetched from " +
+                           $"{OpenCode.NinaWorkspace.McpServerRepository} into the working directory the first " +
+                           "time you connect, and checked against the commit that release points at. Needs git " +
+                           "and a network connection. Set a path here to use your own copy instead.";
                 }
-                if (found != null) {
-                    return "Found. It will be registered in the working directory on connect.";
-                }
-                if (!string.IsNullOrWhiteSpace(configured)) {
+                if (found == null) {
                     return "That file does not exist.";
                 }
-                return "Not found on this machine. It will be fetched from " +
-                       $"{OpenCode.NinaWorkspace.McpServerRepository} into the working directory the first time " +
-                       "you connect, which needs git and a network connection. Set a path here to use your own copy.";
+                var requirements = System.IO.Path.Combine(
+                    System.IO.Path.GetDirectoryName(configured.Trim()) ?? string.Empty, "requirements.txt");
+                if (!System.IO.File.Exists(requirements)) {
+                    return "Found, but there is no requirements.txt beside it, so its dependencies cannot be " +
+                           "installed and it will not be used. Point this at a full checkout, or clear the box " +
+                           $"and let the plugin fetch {OpenCode.NinaWorkspace.McpServerTag} itself.";
+                }
+                return "Your own copy will be used as it is. It is not checked against " +
+                       $"{OpenCode.NinaWorkspace.McpServerTag}, so what it contains is up to you.";
             }
         }
 
