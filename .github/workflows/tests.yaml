@@ -1,0 +1,23 @@
+# Runs the test suite on every change, so a broken permission policy is found when it is
+# written rather than on the day somebody tags a release.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Test
+        run: dotnet test NINA.Plugin.OpenCode.Test/NINA.Plugin.OpenCode.Test.csproj -c Release --no-restore --logger "console;verbosity=normal"

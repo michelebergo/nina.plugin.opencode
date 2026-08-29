@@ -35,14 +35,27 @@ jobs:
           dotnet restore
           dotnet build "${{ env.PLUGIN_SLN_NAME }}.sln" -c Release -p:PostBuildEvent= -p:Version=${{ github.ref_name }} -o ./bin/Release
 
+      - name: Run tests
+        # The gate, and the reason it is here rather than only on pull requests: the plugin
+        # once shipped a permission policy that matched none of the 179 tools it was written
+        # for, so every agent could do everything without asking, and the build was perfectly
+        # happy. A release that cannot pass its own tests does not get published.
+        run: dotnet test NINA.Plugin.OpenCode.Test/NINA.Plugin.OpenCode.Test.csproj -c Release --no-restore
+
       - name: Prepare package
         run: |
+          # This plugin's own assembly and nothing else.
+          #
+          # The template this workflow came from also copies every other DLL out of the build
+          # output as "dependencies that are not part of N.I.N.A.", but for this plugin they
+          # all are: the build directory is full of the host's own assemblies, pulled in by the
+          # NINA.Plugin package. Shipping those means N.I.N.A. loads a second copy of its own
+          # libraries from the plugin folder, which is the duplicate-load conflict the project
+          # file warns about a few lines from here. This plugin has no private dependencies -
+          # Newtonsoft and the MVVM toolkit already ship with the host.
           Copy-Item "bin/Release/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
           Copy-Item "bin/Release/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
-          # Copy additional dependencies that are not part of NINA
-          Get-ChildItem "bin/Release/*.dll" | Where-Object { $_.Name -notin @("${{ env.PLUGIN_DLL_NAME }}.dll") } | ForEach-Object {
-            Copy-Item $_.FullName "packages/${{ env.PLUGIN_NAME }}/" -Force
-          }
+          Write-Host "Packaged:"; Get-ChildItem "packages/${{ env.PLUGIN_NAME }}" | ForEach-Object { Write-Host "  $($_.Name)" }
 
       - name: Create Plugin archives and manifests
         run: |
