@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -56,4 +56,13 @@
           SkipUnchangedFiles="false"
           ContinueOnError="WarnAndContinue" />
   </Target>
+  <ItemGroup>
+    <!-- The test project lives under this one's directory, and the SDK would otherwise
+         compile its sources into the plugin. -->
+    <Compile Remove="NINA.Plugin.OpenCode.Test\**" />
+    <None Remove="NINA.Plugin.OpenCode.Test\**" />
+    <Page Remove="NINA.Plugin.OpenCode.Test\**" />
+    <Resource Remove="NINA.Plugin.OpenCode.Test\**" />
+  </ItemGroup>
+
 </Project>

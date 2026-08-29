@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.InteropServices;
 
 // General Information
@@ -60,3 +60,10 @@ The AI Assistant plugin is self-contained: it holds its own providers, its own k
 
 WHAT IT DOES NOT DO YET
 Nothing wakes the agent up. The autopilot agent exists and its policy is enforced, but no event triggers it: there is no classifier deciding what deserves a turn, no counters bounding how often it may act, and no notification when it stops. Chosen by hand it behaves as described; left to itself it does nothing. Unattended operation is being built in that order on purpose - the log first, so that what the agent should react to is decided from what your observatory actually does.")]
+
+// The test project asserts things this plugin has no reason to expose publicly: that the
+// generated permission policy names the tools opencode actually exposes, that a credential
+// is only offered to the server the panel was pointed at, and that no copy of the MCP
+// server runs unless somebody named it. Declared here rather than in the project file,
+// because GenerateAssemblyInfo is off and the SDK item would be ignored.
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("NINA.Plugin.OpenCode.Test")]
