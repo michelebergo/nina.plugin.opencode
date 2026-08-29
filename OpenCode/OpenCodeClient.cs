@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using NINA.Core.Utility;
 using System;
 using System.Collections.Generic;
@@ -59,11 +59,14 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         /// a project picker and an empty session list, and the user has to work out that they
         /// are supposed to create one - which is the plugin asking them to do its job.
         /// </summary>
-        public async Task<Uri?> OpenSessionAsync(string? agent, CancellationToken token) {
+        /// <summary>The address of a new session, and the working directory the server is in.</summary>
+        internal readonly record struct OpenedSession(Uri? Url, string? Directory);
+
+        public async Task<OpenedSession> OpenSessionAsync(string? agent, CancellationToken token) {
             var body = new CreateSessionRequest { Agent = string.IsNullOrWhiteSpace(agent) ? null : agent };
             var created = await PostAsync<SessionInfo>("api/session", body, token).ConfigureAwait(false);
             var id = created?.Id;
-            if (string.IsNullOrEmpty(id)) { return null; }
+            if (string.IsNullOrEmpty(id)) { return default; }
 
             // The page's route is "/{directory}/session/{id}", and the directory is not a
             // readable path: it is the absolute working directory encoded as base64url,
@@ -76,8 +79,8 @@ namespace NINA.Plugin.OpenCode.OpenCode {
             var directory = detail?.Directory;
 
             return string.IsNullOrWhiteSpace(directory)
-                ? null
-                : new Uri(BaseUrl, $"{EncodeDirectory(directory!)}/session/{id}");
+                ? new OpenedSession(null, null)
+                : new OpenedSession(new Uri(BaseUrl, $"{EncodeDirectory(directory!)}/session/{id}"), directory);
         }
 
         /// <summary>base64url, as the interface encodes a directory into its own addresses.</summary>

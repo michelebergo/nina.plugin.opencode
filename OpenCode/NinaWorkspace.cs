@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using NINA.Core.Utility;
 using System;
 using System.Diagnostics;
@@ -28,6 +28,68 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         internal const string McpServerRepository = "https://github.com/michelebergo/nina_mcp_server";
 
         /// <summary>
+        /// The release of the N.I.N.A. MCP server this plugin was built and tested against.
+        ///
+        /// The tag is what a person reads; the commit is what gets checked. A tag can be
+        /// moved with a force push and a branch moves by definition, so fetching "whatever is
+        /// on main" means two installations a month apart run different code, and anyone who
+        /// can push to that repository can reach every future installation. The commit is
+        /// verified after the checkout and the server is not run if it does not match.
+        ///
+        /// Raising these two is a deliberate act with a test attached: the permission policy
+        /// enumerates the 179 tools this release registers, so a release that adds one fails
+        /// the policy test until somebody classifies it.
+        /// </summary>
+        /// <summary>
+        /// What the permission policy of an attached server is, as far as this plugin can
+        /// tell.
+        /// </summary>
+        internal enum AttachedPolicy {
+            /// <summary>The workspace carries a configuration this plugin wrote.</summary>
+            Ours,
+            /// <summary>A workspace this plugin can read, holding somebody else's configuration.</summary>
+            Foreign,
+            /// <summary>On another machine, or otherwise unreadable from here.</summary>
+            Unknown
+        }
+
+        /// <summary>
+        /// Attaching to a server somebody else started means the agent runs under that
+        /// server's configuration, not the one this plugin generates: none of the deny floor,
+        /// none of the per-tool rules, none of the three agents. That is a legitimate thing to
+        /// want - it is somebody else's session and this plugin has no business writing into
+        /// their directory - but it is not a thing to leave unsaid, because the panel looks
+        /// identical either way.
+        ///
+        /// Pure on purpose: the caller supplies the reader, so the decision can be tested
+        /// without a filesystem.
+        /// </summary>
+        internal static AttachedPolicy InspectAttached(string? remoteDirectory, bool serverIsLocal,
+                                                       Func<string, string?> readText) {
+            if (!serverIsLocal || string.IsNullOrWhiteSpace(remoteDirectory)) { return AttachedPolicy.Unknown; }
+
+            string? config;
+            try {
+                config = readText(Path.Combine(remoteDirectory!, "opencode.json"));
+            } catch {
+                return AttachedPolicy.Unknown;
+            }
+
+            if (config == null) { return AttachedPolicy.Foreign; }
+
+            // The stamp without its version: a workspace prepared by an older build of this
+            // plugin still had this plugin's policy in it.
+            var mark = GeneratorStamp.Substring(0, GeneratorStamp.LastIndexOf(' '));
+            return config.Contains(mark) ? AttachedPolicy.Ours : AttachedPolicy.Foreign;
+        }
+
+        private const string McpScriptName = "nina_advanced_mcp.py";
+
+        internal const string McpServerTag = "v1.0.1";
+
+        internal const string McpServerCommit = "d063ada60cf3d79affe86500f29214e22640d3e0";
+
+        /// <summary>
         /// Stamped into every file this class writes, so a later version can tell its own
         /// work from the user's.
         ///
@@ -38,7 +100,70 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         /// Now a file this plugin wrote is replaced when it is out of date, with the previous
         /// one kept beside it; a file somebody edited is still left alone.
         /// </summary>
-        private const string GeneratorStamp = "nina.plugin.opencode 0.1.0.0";
+        private static readonly string GeneratorStamp =
+            "nina.plugin.opencode " +
+            (typeof(NinaWorkspace).Assembly.GetName().Version?.ToString() ?? "unknown");
+
+        /// <summary>
+        /// The identifier the N.I.N.A. server is registered under, and the prefix every one of
+        /// its tools is therefore exposed with.
+        ///
+        /// opencode names an MCP tool "{server}_{tool}" - catalog.ts, toolName - so a server
+        /// called "nina" holding a tool called "nina_slew_mount" offers it as
+        /// "nina_nina_slew_mount". Rules written against the bare name match nothing, and a
+        /// tool that matches no rule inherits opencode's own default of "*": "allow". That is
+        /// how a policy of 121 rules came to permit all 179 tools without asking. The id and
+        /// the rules now come from the same place so they cannot disagree again.
+        /// </summary>
+        private const string McpServerId = "nina";
+
+        /// <summary>The name opencode will expose this tool under.</summary>
+        private static string Exposed(string tool) => McpServerId + "_" + tool;
+
+        /// <summary>
+        /// Everything the server offers that reads, computes or waits, plus the three imaging
+        /// actions the project deliberately lets run without a prompt - take an exposure,
+        /// autofocus, change filter - because a prompt for each of those teaches the user to
+        /// click Allow without reading.
+        ///
+        /// Enumerated rather than matched by prefix, and for the same reason the mutating list
+        /// is: with a deny floor underneath, a tool that appears in a later version of the
+        /// server arrives refused rather than permitted, and someone has to look at it.
+        /// </summary>
+        private static readonly string[] ReadOnlyTools = {
+            // Not hardware, whatever the name suggests: these open and close the HTTP session
+            // between the MCP server and N.I.N.A.'s own API, and the server says so itself -
+            // "specifically for NINA control and should not be used for direct hardware
+            // connections". Every other tool needs the session first, so refusing this one
+            // does not make an agent careful, it makes it unable to read anything at all. It
+            // cannot be pointed elsewhere either: the host and port come from the environment
+            // this plugin sets, which wins over the argument.
+            "nina_connect", "nina_disconnect",
+
+            "nina_cancel_autofocus", "nina_capture_image", "nina_change_filter",
+            "nina_get_autofocus_status", "nina_get_camera_info", "nina_get_capture_statistics",
+            "nina_get_dome_info", "nina_get_event_history", "nina_get_filter_info",
+            "nina_get_filterwheel_info", "nina_get_flatpanel_info", "nina_get_flats_progress",
+            "nina_get_flats_status", "nina_get_focuser_info", "nina_get_framingassistant_info",
+            "nina_get_guider_graph", "nina_get_guider_info", "nina_get_image",
+            "nina_get_image_history", "nina_get_image_parameter", "nina_get_image_parameters",
+            "nina_get_image_thumbnail", "nina_get_livestack_available_stacks", "nina_get_livestack_stacked_image",
+            "nina_get_livestack_stacked_image_info", "nina_get_livestack_status", "nina_get_logs",
+            "nina_get_moon_separation", "nina_get_mount_info", "nina_get_plugin_settings",
+            "nina_get_plugins", "nina_get_prepared_image", "nina_get_profile_horizon",
+            "nina_get_rotator_info", "nina_get_safetymonitor_info", "nina_get_screenshot",
+            "nina_get_start_time", "nina_get_status", "nina_get_switch_channels",
+            "nina_get_tab", "nina_get_version", "nina_get_weather_info",
+            "nina_help", "nina_list_camera_devices", "nina_list_dome_devices",
+            "nina_list_filterwheel_devices", "nina_list_flatpanel_devices", "nina_list_focuser_devices",
+            "nina_list_guider_devices", "nina_list_mount_devices", "nina_list_rotator_devices",
+            "nina_list_safetymonitor_devices", "nina_list_switch_devices", "nina_list_weather_sources",
+            "nina_platesolve_status", "nina_poll_events_since", "nina_sequence_json",
+            "nina_sequence_list_available", "nina_sequence_state", "nina_show_profile",
+            "nina_solve_image", "nina_solve_prepared_image", "nina_start_autofocus",
+            "nina_time_now", "nina_ts_get_exposure_plan", "nina_ts_list_projects",
+            "nina_ts_next_target", "nina_wait",
+        };
 
         /// <summary>
         /// Tools that move something, change a setting, or take control of a device. Every
@@ -51,13 +176,16 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         /// asks first.
         /// </summary>
         private static readonly string[] AskBeforeUsing = {
+            // Ends the exposure somebody is in the middle of. The standing brief tells the
+            // agent that an exposure in progress is somebody's night; the policy has to agree.
+            "nina_abort_exposure",
             "nina_auto_brightness_flats", "nina_auto_exposure_flats", "nina_calibrate_guider",
             "nina_change_profile_value", "nina_clear_guider_calibration", "nina_close_dome_shutter",
-            "nina_connect", "nina_connect_camera", "nina_connect_dome",
+            "nina_connect_camera", "nina_connect_dome",
             "nina_connect_filterwheel", "nina_connect_flatpanel", "nina_connect_focuser",
             "nina_connect_guider", "nina_connect_mount", "nina_connect_rotator",
             "nina_connect_safetymonitor", "nina_connect_switch", "nina_connect_weather",
-            "nina_control_dew_heater", "nina_determine_framingassistant_rotation", "nina_disconnect",
+            "nina_control_dew_heater", "nina_determine_framingassistant_rotation",
             "nina_disconnect_camera", "nina_disconnect_dome", "nina_disconnect_filterwheel",
             "nina_disconnect_flatpanel", "nina_disconnect_focuser", "nina_disconnect_guider",
             "nina_disconnect_mount", "nina_disconnect_rotator", "nina_disconnect_switch",
@@ -97,6 +225,12 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         /// </summary>
         private static readonly string[] NeverAllowed = {
             "nina_disconnect_safetymonitor", "nina_disconnect_weather",
+            // Takes a local file path and a webhook URL, opens the file and uploads it, with no
+            // restriction on the source, the destination or the size. An agent reading a
+            // hostile instruction out of a log or a FITS header can use it to send any file the
+            // N.I.N.A. user can read to anywhere. There is no version of this the calibration
+            // panel needs.
+            "nina_alert_human",
         };
 
         /// <summary>
@@ -131,13 +265,14 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         /// the conversation talks it into wanting to.
         /// </summary>
         private static readonly string[] MutatingTools = {
-            "nina_auto_brightness_flats", "nina_auto_exposure_flats", "nina_calibrate_guider",
+            "nina_abort_exposure", "nina_auto_brightness_flats", "nina_auto_exposure_flats",
+            "nina_calibrate_guider",
             "nina_change_profile_value", "nina_clear_guider_calibration", "nina_close_dome_shutter",
-            "nina_connect", "nina_connect_camera", "nina_connect_dome",
+            "nina_connect_camera", "nina_connect_dome",
             "nina_connect_filterwheel", "nina_connect_flatpanel", "nina_connect_focuser",
             "nina_connect_guider", "nina_connect_mount", "nina_connect_rotator",
             "nina_connect_safetymonitor", "nina_connect_switch", "nina_connect_weather",
-            "nina_control_dew_heater", "nina_determine_framingassistant_rotation", "nina_disconnect",
+            "nina_control_dew_heater", "nina_determine_framingassistant_rotation",
             "nina_disconnect_camera", "nina_disconnect_dome", "nina_disconnect_filterwheel",
             "nina_disconnect_flatpanel", "nina_disconnect_focuser", "nina_disconnect_guider",
             "nina_disconnect_mount", "nina_disconnect_rotator", "nina_disconnect_safetymonitor",
@@ -179,8 +314,15 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         /// connection that times out after thirty seconds with nothing in any log. Measured
         /// against the installed server: 3.4.7 times out, 1.0 connects.
         /// </summary>
-        private const string McpDependencies =
-            "fastmcp==1.0,fastapi,uvicorn,pydantic,aiohttp,requests,python-dotenv,structlog,python-dateutil,pytz";
+        /// <summary>
+        /// The interpreter the server is run on.
+        ///
+        /// Named rather than left to uv, because "whatever Python this machine happens to
+        /// offer" resolves differently on different machines, and the pinned dependency set
+        /// was compiled against this one. A pin on the packages that leaves the interpreter
+        /// free is only half a pin.
+        /// </summary>
+        private const string McpPythonVersion = "3.11";
 
         /// <summary>
         /// Where the agent works when the user has not chosen somewhere. A plugin that only
@@ -197,38 +339,22 @@ namespace NINA.Plugin.OpenCode.OpenCode {
             "NINA", "Plugins", "OpenCode", "workspace");
 
         /// <summary>
-        /// Finds the N.I.N.A. MCP server. An explicit setting wins; otherwise the places a
-        /// clone normally lands are checked, because asking someone to paste a path to a
-        /// file they already have is a configuration step that exists only to be forgotten.
+        /// The N.I.N.A. MCP server this plugin will use: the path someone typed into Options,
+        /// or nothing.
+        ///
+        /// An earlier version also searched five common developer directories for any file
+        /// called nina_advanced_mcp.py and ran the first one it found. It was meant as a
+        /// courtesy - not asking someone to paste a path to a file they already have - but
+        /// what it actually did was execute an unverified script, chosen by filename, with
+        /// the whole observatory tool surface behind it. A path typed into Options is a
+        /// deliberate act by the person at the keyboard; a filename match in a home directory
+        /// is not.
         /// </summary>
         public static string? LocateMcpServer(string? configured) {
-            if (!string.IsNullOrWhiteSpace(configured)) {
-                var explicitPath = configured!.Trim();
-                return File.Exists(explicitPath) ? explicitPath : null;
-            }
-
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string[] candidates = {
-                Path.Combine(home, "Desktop", "github", "nina_mcp_server", McpScriptName),
-                Path.Combine(home, "github", "nina_mcp_server", McpScriptName),
-                Path.Combine(home, "Documents", "nina_mcp_server", McpScriptName),
-                Path.Combine(home, "source", "repos", "nina_mcp_server", McpScriptName),
-                Path.Combine(home, "nina_mcp_server", McpScriptName),
-                // Where this plugin puts it when it fetches it itself.
-                Path.Combine(DefaultDirectory, "nina_mcp_server", McpScriptName),
-            };
-
-            foreach (var candidate in candidates) {
-                try {
-                    if (File.Exists(candidate)) { return candidate; }
-                } catch (ArgumentException) {
-                    // A path this machine cannot express is not a reason to stop looking.
-                }
-            }
-            return null;
+            if (string.IsNullOrWhiteSpace(configured)) { return null; }
+            var explicitPath = configured!.Trim();
+            return File.Exists(explicitPath) ? explicitPath : null;
         }
-
-        private const string McpScriptName = "nina_advanced_mcp.py";
 
         /// <summary>
         /// Makes sure the N.I.N.A. MCP server is on disk, cloning it if it is not.
@@ -245,53 +371,64 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         public static async Task<string?> EnsureMcpServerAsync(string workingDirectory, string? configured,
                                                               Action<string>? report, CancellationToken token) {
             var existing = LocateMcpServer(configured);
-            if (existing != null) { return existing; }
+            if (existing != null) {
+                // The dependencies are installed from the file the server ships, so a copy
+                // without one cannot be started at all. Said here, where the path came from,
+                // rather than left to uv to fail on a file that is not there.
+                var beside = Path.Combine(Path.GetDirectoryName(existing) ?? string.Empty, "requirements.txt");
+                if (!File.Exists(beside)) {
+                    report?.Invoke($"The MCP server at {existing} has no requirements.txt beside it, so its " +
+                                   "dependencies cannot be installed. Point Options at a full checkout, or clear " +
+                                   $"the setting and let the plugin fetch {McpServerTag} itself.");
+                    return null;
+                }
+
+                // Somebody typed this path in. It is not the pinned release and this plugin
+                // has no way to know what it is, so it says so rather than letting the
+                // verification below look as though it applies to it.
+                Logger.Info($"OpenCode: using the MCP server at the configured path {existing}; " +
+                    $"it is not verified against {McpServerTag}");
+                return existing;
+            }
 
             var target = Path.Combine(
                 string.IsNullOrWhiteSpace(workingDirectory) ? DefaultDirectory : workingDirectory,
                 "nina_mcp_server");
             var script = Path.Combine(target, McpScriptName);
-            if (File.Exists(script)) { return script; }
+
+            // Already here and already right: nothing to fetch.
+            if (File.Exists(script) && await AtPinnedCommit(target, token).ConfigureAwait(false)) {
+                return script;
+            }
 
             if (!HasGit()) {
-                report?.Invoke($"git is not installed, so the N.I.N.A. tools cannot be fetched. " +
-                               $"Clone {McpServerRepository} yourself and set its path in Options.");
+                report?.Invoke("git is not installed, so the N.I.N.A. tools cannot be fetched. " +
+                               $"Clone {McpServerRepository} at {McpServerTag} yourself and set its path in Options.");
                 return null;
             }
 
-            report?.Invoke("Fetching the N.I.N.A. tools...");
+            report?.Invoke($"Fetching the N.I.N.A. tools ({McpServerTag})...");
             try {
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                var clone = new ProcessStartInfo {
-                    FileName = "git",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                clone.ArgumentList.Add("clone");
-                // Shallow: this is a working copy of somebody else's tool, not a repository
-                // anybody is going to develop in from here.
-                clone.ArgumentList.Add("--depth");
-                clone.ArgumentList.Add("1");
-                clone.ArgumentList.Add(McpServerRepository);
-                clone.ArgumentList.Add(target);
 
-                using var process = Process.Start(clone);
-                if (process == null) { return null; }
-
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-                cts.CancelAfter(TimeSpan.FromMinutes(3));
-                await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-
-                if (process.ExitCode != 0) {
-                    var error = await process.StandardError.ReadToEndAsync(token).ConfigureAwait(false);
-                    Logger.Warning($"OpenCode: could not clone the MCP server ({error.Trim()})");
+                // A directory that exists but sits on the wrong commit is updated in place
+                // rather than deleted. Deleting a directory tree because the version is not
+                // the expected one is a heavy answer to a light problem, and an interrupted
+                // delete leaves nothing behind to retry from.
+                var present = Directory.Exists(Path.Combine(target, ".git"));
+                if (present) {
+                    if (!await RunGit(target, token, "fetch", "--depth", "1", "origin", "tag", McpServerTag).ConfigureAwait(false) ||
+                        !await RunGit(target, token, "checkout", "--detach", McpServerTag).ConfigureAwait(false)) {
+                        report?.Invoke($"Could not update the N.I.N.A. tools in {target} to {McpServerTag}.");
+                        return null;
+                    }
+                } else if (!await RunGit(null, token, "clone", "--depth", "1",
+                                         "--branch", McpServerTag, McpServerRepository, target).ConfigureAwait(false)) {
                     report?.Invoke($"Could not fetch the N.I.N.A. tools from {McpServerRepository}.");
                     return null;
                 }
             } catch (Exception ex) {
-                Logger.Warning($"OpenCode: could not clone the MCP server ({ex.Message})");
+                Logger.Warning($"OpenCode: could not fetch the MCP server ({ex.Message})");
                 report?.Invoke($"Could not fetch the N.I.N.A. tools: {ex.Message}");
                 return null;
             }
@@ -301,8 +438,84 @@ namespace NINA.Plugin.OpenCode.OpenCode {
                 return null;
             }
 
-            Logger.Info($"OpenCode: cloned the N.I.N.A. MCP server into {target}");
+            // The whole point of naming a commit. A tag can be moved, a mirror can serve
+            // something else, an interrupted fetch can leave the working tree somewhere
+            // nobody intended - and every one of those ends with this plugin running a Python
+            // file that has the observatory behind it. Verified, or not run.
+            if (!await AtPinnedCommit(target, token).ConfigureAwait(false)) {
+                report?.Invoke("The N.I.N.A. tools were fetched but are not at the expected commit " +
+                               $"({McpServerTag}). They will not be used. Delete {target} and try again.");
+                return null;
+            }
+
+            Logger.Info($"OpenCode: N.I.N.A. MCP server {McpServerTag} ready in {target}");
             return script;
+        }
+
+        /// <summary>
+        /// Whether the checkout really is the pinned commit. Answers false on any doubt - a
+        /// directory that is not a repository, a git that will not run, an unreadable answer -
+        /// because "I could not tell" and "it is wrong" deserve the same caution here.
+        /// </summary>
+        private static async Task<bool> AtPinnedCommit(string directory, CancellationToken token) {
+            try {
+                var head = await ReadGit(directory, token, "rev-parse", "HEAD").ConfigureAwait(false);
+                if (head == null) { return false; }
+                var match = string.Equals(head.Trim(), McpServerCommit, StringComparison.OrdinalIgnoreCase);
+                if (!match) {
+                    Logger.Warning($"OpenCode: the MCP server in {directory} is at {head.Trim()}, " +
+                        $"not the pinned {McpServerCommit} ({McpServerTag})");
+                }
+                return match;
+            } catch (Exception ex) {
+                Logger.Warning($"OpenCode: could not read the MCP server commit ({ex.Message})");
+                return false;
+            }
+        }
+
+        private static ProcessStartInfo GitStart(string? workingDirectory) {
+            var info = new ProcessStartInfo {
+                FileName = "git",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            if (!string.IsNullOrWhiteSpace(workingDirectory)) { info.WorkingDirectory = workingDirectory; }
+            return info;
+        }
+
+        /// <summary>Runs git and reports whether it succeeded. Three minutes is the ceiling.</summary>
+        private static async Task<bool> RunGit(string? workingDirectory, CancellationToken token, params string[] args) {
+            var info = GitStart(workingDirectory);
+            foreach (var a in args) { info.ArgumentList.Add(a); }
+
+            using var process = Process.Start(info);
+            if (process == null) { return false; }
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(TimeSpan.FromMinutes(3));
+            await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+
+            if (process.ExitCode == 0) { return true; }
+            var error = await process.StandardError.ReadToEndAsync(token).ConfigureAwait(false);
+            Logger.Warning($"OpenCode: git {string.Join(" ", args)} failed ({error.Trim()})");
+            return false;
+        }
+
+        /// <summary>Runs git and returns what it printed, or null if it failed.</summary>
+        private static async Task<string?> ReadGit(string workingDirectory, CancellationToken token, params string[] args) {
+            var info = GitStart(workingDirectory);
+            foreach (var a in args) { info.ArgumentList.Add(a); }
+
+            using var process = Process.Start(info);
+            if (process == null) { return null; }
+
+            var output = await process.StandardOutput.ReadToEndAsync(token).ConfigureAwait(false);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(TimeSpan.FromMinutes(1));
+            await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+            return process.ExitCode == 0 ? output : null;
         }
 
         private static bool HasGit() {
@@ -509,7 +722,7 @@ work through the sequence rather than around it.
         /// things are refused outright: an agent that can disconnect the safety monitor or
         /// the weather source can work around the very devices that exist to stop it.
         /// </summary>
-        private static string BuildMcpConfig(string ninaMcpServerPath, string ninaHost, int ninaPort,
+        internal static string BuildMcpConfig(string ninaMcpServerPath, string ninaHost, int ninaPort,
                                              string? localModelHost, string? localModelId,
                                              IReadOnlyList<string>? localModels) {
             // Forward slashes on purpose: the path lands inside JSON, where a Windows
@@ -517,28 +730,35 @@ work through the sequence rather than around it.
             // silently invalid.
             var script = ninaMcpServerPath.Replace(@"\", "/");
 
+            // Installed from the file the server itself ships, not from a list kept here.
+            // Two lists is one too many: this plugin used to carry its own, the two drifted,
+            // and the one that ran was this one - which is how the server came to run without
+            // a package it imports, and with a package it never asked for.
+            var requirements = Path.Combine(Path.GetDirectoryName(ninaMcpServerPath) ?? string.Empty,
+                                            "requirements.txt").Replace(@"\", "/");
+
             var permissions = new StringBuilder();
 
             // The built-in tools first. bash is a shell on the observatory machine and edit
             // rewrites files there, so both ask; reading and searching change nothing.
-            AppendPermission(permissions, "read", "allow");
-            AppendPermission(permissions, "grep", "allow");
-            AppendPermission(permissions, "glob", "allow");
-            AppendPermission(permissions, "list", "allow");
-            AppendPermission(permissions, "webfetch", "allow");
-            AppendPermission(permissions, "websearch", "allow");
-            AppendPermission(permissions, "question", "allow");
-            AppendPermission(permissions, "todowrite", "allow");
-            AppendPermission(permissions, "bash", "ask");
-            AppendPermission(permissions, "edit", "ask");
-            AppendPermission(permissions, "task", "ask");
-            AppendPermission(permissions, "external_directory", "ask");
+            // The floor, and the single most important line in this file. opencode resolves a
+            // tool against the LAST matching rule, and its own default is "*": "allow" - so
+            // anything this policy fails to name is permitted. Naming 179 tools correctly is a
+            // thing that can be got wrong once and silently; a floor cannot. With this first,
+            // a tool that is misnamed, renamed or newly added is refused, and the agent says
+            // so instead of doing it.
+            AppendPermission(permissions, "*", "deny");
 
-            foreach (var tool in NeverAllowed) { AppendPermission(permissions, tool, "deny"); }
-            foreach (var tool in AskBeforeUsing) { AppendPermission(permissions, tool, "ask"); }
+            AppendBuiltins(permissions, reading: "allow", acting: "ask", browsing: "allow");
+
+            // Order is the mechanism: later rules override earlier ones, so the reads open the
+            // N.I.N.A. namespace and the two lists below close the parts of it that move.
+            foreach (var tool in ReadOnlyTools) { AppendPermission(permissions, Exposed(tool), "allow"); }
+            foreach (var tool in AskBeforeUsing) { AppendPermission(permissions, Exposed(tool), "ask"); }
+            foreach (var tool in NeverAllowed) { AppendPermission(permissions, Exposed(tool), "deny"); }
 
             var policy = Close(permissions);
-            var observerTools = BuildObserverTools();
+            var observerPolicy = BuildObserverPolicy();
             var autopilotPolicy = BuildAutopilotPolicy();
 
             // A local model is declared as an OpenAI-compatible provider, which is what
@@ -550,7 +770,17 @@ work through the sequence rather than around it.
 
             return $@"{{
   ""$schema"": ""https://opencode.ai/config.json"",
-  ""_generatedBy"": ""{GeneratorStamp}"",
+  // {GeneratorStamp}
+  //
+  // Rewritten by the plugin whenever it has something new to put here. To keep changes of
+  // your own, delete the line above: this file is then yours and the plugin leaves it alone -
+  // and stops giving you anything it would have added later. The copy it replaced is always
+  // kept beside it as opencode.json.previous.
+  //
+  // To add an agent of your own without giving that up, put a markdown file in
+  // .opencode/agents/ next to this file. The plugin never touches that folder, so your agents
+  // survive every update. Three come from here: observer reads, copilot acts and asks first,
+  // autopilot runs unattended with every answer decided in advance.
   ""instructions"": [""AGENTS.md""],
   ""default_agent"": ""observer"",
   ""mcp"": {{
@@ -558,12 +788,13 @@ work through the sequence rather than around it.
       ""type"": ""local"",
       ""command"": [
         ""uv"", ""run"",
-        ""--with"", ""{McpDependencies}"",
+        ""--python"", ""{McpPythonVersion}"",
+        ""--with-requirements"", {Quote(requirements)},
         ""fastmcp"", ""run"",
-        ""{script}""
+        {Quote(script)}
       ],
       ""environment"": {{
-        ""NINA_HOST"": ""{ninaHost}"",
+        ""NINA_HOST"": {Quote(ninaHost)},
         ""NINA_PORT"": ""{ninaPort}""
       }},
       ""enabled"": true,
@@ -585,23 +816,23 @@ work through the sequence rather than around it.
 {agentModel}      ""description"": ""Watches the session and explains it. Cannot move anything."",
       ""mode"": ""primary"",
       ""temperature"": 0.1,
-      ""prompt"": ""{ObserverPrompt}"",
-      ""tools"": {{
-{observerTools}
+      ""prompt"": {Quote(ObserverPrompt)},
+      ""permission"": {{
+{observerPolicy}
       }}
     }},
     ""copilot"": {{
 {agentModel}      ""description"": ""Can act on the observatory, asking before anything that moves hardware."",
       ""mode"": ""primary"",
       ""temperature"": 0.1,
-      ""prompt"": ""{CopilotPrompt}""
+      ""prompt"": {Quote(CopilotPrompt)}
     }},
     ""autopilot"": {{
 {agentModel}      ""description"": ""Unattended recovery. Every permission is decided in advance; it never asks."",
       ""mode"": ""primary"",
       ""temperature"": 0.1,
       ""steps"": 20,
-      ""prompt"": ""{AutopilotPrompt}"",
+      ""prompt"": {Quote(AutopilotPrompt)},
       ""permission"": {{
 {autopilotPolicy}
       }}
@@ -628,45 +859,71 @@ work through the sequence rather than around it.
         private static string BuildAutopilotPolicy() {
             var permissions = new StringBuilder();
 
-            AppendPermission(permissions, "read", "allow");
-            AppendPermission(permissions, "grep", "allow");
-            AppendPermission(permissions, "glob", "allow");
-            AppendPermission(permissions, "list", "allow");
-            AppendPermission(permissions, "todowrite", "allow");
-            AppendPermission(permissions, "bash", "deny");
-            AppendPermission(permissions, "edit", "deny");
-            AppendPermission(permissions, "task", "deny");
-            AppendPermission(permissions, "external_directory", "deny");
-            AppendPermission(permissions, "question", "deny");
-            AppendPermission(permissions, "webfetch", "deny");
-            AppendPermission(permissions, "websearch", "deny");
+            AppendPermission(permissions, "*", "deny");
+
+            AppendBuiltins(permissions, reading: "allow", acting: "deny", browsing: "deny");
 
             // Everything that moves is refused, and then the recovery actions are granted
             // back. Written in that order on purpose: a tool added to the MCP server later
             // arrives denied for the unattended agent rather than allowed by omission.
             var allowed = new HashSet<string>(RecoveryActions, StringComparer.Ordinal);
+            foreach (var tool in ReadOnlyTools) { AppendPermission(permissions, Exposed(tool), "allow"); }
             foreach (var tool in MutatingTools) {
-                AppendPermission(permissions, tool, allowed.Contains(tool) ? "allow" : "deny");
+                AppendPermission(permissions, Exposed(tool), allowed.Contains(tool) ? "allow" : "deny");
             }
             foreach (var tool in RecoveryActions) {
-                if (Array.IndexOf(MutatingTools, tool) < 0) { AppendPermission(permissions, tool, "allow"); }
+                if (Array.IndexOf(MutatingTools, tool) < 0) { AppendPermission(permissions, Exposed(tool), "allow"); }
             }
-            foreach (var tool in NeverAllowed) {
-                if (Array.IndexOf(MutatingTools, tool) < 0) { AppendPermission(permissions, tool, "deny"); }
-            }
+            foreach (var tool in NeverAllowed) { AppendPermission(permissions, Exposed(tool), "deny"); }
 
             return Close(permissions);
         }
 
-        /// <summary>The tools the observer is denied, rendered as opencode's on/off map.</summary>
-        private static string BuildObserverTools() {
-            var builder = new StringBuilder();
-            foreach (var tool in MutatingTools) {
-                builder.AppendLine("        " + Quote(tool) + ": false,");
+        /// <summary>
+        /// The observer's own policy: it may read, and nothing else on the observatory.
+        ///
+        /// This used to be written as opencode's "tools" on/off map, which the schema marks
+        /// deprecated in favour of "permission" - and which carried the same naming fault as
+        /// everything else, so the switches were thrown for tools that do not exist and the
+        /// read-only agent could move the mount. Written as a policy it obeys the same floor
+        /// as the others: refused unless named.
+        /// </summary>
+        private static string BuildObserverPolicy() {
+            var permissions = new StringBuilder();
+
+            AppendPermission(permissions, "*", "deny");
+
+            AppendBuiltins(permissions, reading: "allow", acting: "deny", browsing: "allow");
+
+            // Not even the imaging actions the project lets the other two take without asking:
+            // an agent whose job is to explain does not need to expose a frame to do it.
+            foreach (var tool in ReadOnlyTools) {
+                var acts = Array.IndexOf(ObserverDeniedReads, tool) >= 0;
+                AppendPermission(permissions, Exposed(tool), acts ? "deny" : "allow");
             }
-            return Close(builder);
+            foreach (var tool in MutatingTools) { AppendPermission(permissions, Exposed(tool), "deny"); }
+            foreach (var tool in NeverAllowed) { AppendPermission(permissions, Exposed(tool), "deny"); }
+
+            return Close(permissions);
         }
 
+        /// <summary>
+        /// The entries of <see cref="ReadOnlyTools"/> that do something rather than report
+        /// something. The other agents may use them freely; the observer may not, because
+        /// "cannot move anything" is the whole of its description.
+        /// </summary>
+        private static readonly string[] ObserverDeniedReads = {
+            "nina_cancel_autofocus", "nina_capture_image", "nina_change_filter",
+            "nina_start_autofocus", "nina_wait",
+        };
+
+        /// <summary>
+        /// A value as JSON, escaping included. Everything that lands in the generated file
+        /// goes through here rather than being interpolated between two literal quotes: the
+        /// host comes from a text box somebody types into, and a single quotation mark in it
+        /// used to be enough to produce a configuration file that will not parse - or, with a
+        /// little care, one that carries settings nobody wrote.
+        /// </summary>
         private static string Quote(string value) => JsonConvert.ToString(value);
 
         /// <summary>Trims the trailing separator so the block is valid JSON on its own.</summary>
@@ -752,6 +1009,50 @@ work through the sequence rather than around it.
             builder.AppendLine("  },");
             return builder.ToString();
         }
+        /// <summary>
+        /// opencode's own tools, every one of them named.
+        ///
+        /// The deny floor refuses whatever a policy does not mention, and that cuts both ways:
+        /// four of these went unnamed in the first version of the floor and were silently
+        /// switched off - including "write", which resolves by its own identifier at call
+        /// time and is not covered by naming "edit". An agent that cannot write a file, with
+        /// nothing anywhere saying why, is a worse outcome than the one the floor prevents.
+        ///
+        /// The identifiers come from opencode's tool registry, read at the commit this
+        /// version was checked against: bash, read, grep, glob, edit, write, apply_patch,
+        /// task, webfetch, websearch, todowrite, question, skill, lsp, invalid. A later
+        /// opencode that adds one will have it refused here, which is the safe direction and
+        /// the same bargain the N.I.N.A. tools are on.
+        /// </summary>
+        private static void AppendBuiltins(StringBuilder permissions, string reading, string acting,
+                                           string browsing) {
+            // Reading the working directory and keeping notes.
+            AppendPermission(permissions, "read", reading);
+            AppendPermission(permissions, "grep", reading);
+            AppendPermission(permissions, "glob", reading);
+            AppendPermission(permissions, "todowrite", reading);
+
+            // Not a capability: the tool opencode substitutes when a model calls something
+            // that does not exist, so that it gets an error it can read instead of a hard
+            // failure. Refusing it makes a mistyped tool name look like a crash.
+            AppendPermission(permissions, "invalid", "allow");
+
+            // Reaching outside the session.
+            AppendPermission(permissions, "webfetch", browsing);
+            AppendPermission(permissions, "websearch", browsing);
+            AppendPermission(permissions, "question", browsing);
+            AppendPermission(permissions, "skill", browsing);
+            AppendPermission(permissions, "lsp", browsing);
+
+            // Changing something on this machine.
+            AppendPermission(permissions, "bash", acting);
+            AppendPermission(permissions, "edit", acting);
+            AppendPermission(permissions, "write", acting);
+            AppendPermission(permissions, "apply_patch", acting);
+            AppendPermission(permissions, "task", acting);
+            AppendPermission(permissions, "external_directory", acting);
+        }
+
         private static void AppendPermission(StringBuilder builder, string tool, string action)
             => builder.Append("    \"").Append(tool).Append("\": \"").Append(action).Append("\",\n");
     }
