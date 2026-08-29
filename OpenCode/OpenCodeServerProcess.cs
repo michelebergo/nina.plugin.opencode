@@ -1,4 +1,4 @@
-using NINA.Core.Utility;
+﻿using NINA.Core.Utility;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -41,6 +41,31 @@ namespace NINA.Plugin.OpenCode.OpenCode {
         /// rather than left to the process launcher, so the answer is a real file that can
         /// be reported, checked and shown to the user.
         /// </summary>
+        /// <summary>
+        /// The password this server will require: the one somebody configured, or none.
+        ///
+        /// Generating one per launch has now been tried twice and abandoned twice, for two
+        /// different reasons, and it is worth writing both down so it is not tried a third
+        /// time without an answer to them.
+        ///
+        /// The first attempt failed because the embedded browser never answered the
+        /// authentication challenge - WebView2 did not raise the event - so the panel took a
+        /// 401 and stayed blank. Carrying the credentials in the address fixed that, and the
+        /// second attempt looked fine on that evidence: the page loads.
+        ///
+        /// The page is not the problem. The interface it loads then makes its own calls back
+        /// to the server, and those do not carry what was in the address - measured, not
+        /// assumed: every one of them comes back 401, the settings never arrive, and the panel
+        /// dies with "Settings context must be used within a context provider". A page that
+        /// opens and then cannot talk to its own server is worse than no password.
+        ///
+        /// Making this work needs the browser to attach the credential to every request it
+        /// makes, not just the first, which WebView2 can do and this plugin does not do yet.
+        /// Until it does, the server is private because of the address it listens on.
+        /// </summary>
+        internal static string? ResolvePassword(string? configured)
+            => string.IsNullOrWhiteSpace(configured) ? null : configured!.Trim();
+
         public static string? ResolveExecutable(string? configuredPath) {
             if (!string.IsNullOrWhiteSpace(configuredPath)) {
                 var explicitPath = configuredPath!.Trim();
@@ -76,19 +101,8 @@ namespace NINA.Plugin.OpenCode.OpenCode {
             if (IsRunning) { return ServerUrl!; }
 
             // Only the password the user asked for, and none if they asked for none.
-            //
-            // This used to generate one per launch, on the reasoning that an unpassworded
-            // opencode server accepts a prompt from anything that can reach its port. The
-            // reasoning was right and the conclusion was wrong twice over. The server is
-            // bound to 127.0.0.1, so "anything that can reach the port" means a process
-            // already running as this user - which could equally read the password out of the
-            // configuration. And the embedded browser turned out not to answer the
-            // authentication challenge at all: WebView2 never raised the event for it, so the
-            // panel got a 401 and stayed blank, with the credential the plugin had invented
-            // sitting in memory where nobody could type it.
-            //
-            // What actually keeps this server private is the hostname it listens on.
-            Password = string.IsNullOrWhiteSpace(password) ? null : password!.Trim();
+            // The reasoning is in ResolvePassword, including what breaks when one is invented.
+            Password = ResolvePassword(password);
 
             var exe = ResolveExecutable(executablePath);
             if (exe == null) {

@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using NINA.Core.Utility;
 using NINA.Equipment.Interfaces.ViewModel;
 using NINA.Plugin.OpenCode.OpenCode;
@@ -147,6 +147,20 @@ namespace NINA.Plugin.OpenCode {
                         Status = $"'{plugin.ServerUrl}' is not a valid address.";
                         return;
                     }
+
+                    // Attaching means handing this panel's credentials, and the observatory's
+                    // whole tool surface, to whatever is at that address. On this machine there
+                    // is nothing between the two to protect; across a network there is, and
+                    // plain http offers the password to anyone on the path and lets them answer
+                    // in the server's place. Loopback or TLS - nothing else is offered a
+                    // password.
+                    if (!parsed.IsLoopback && !parsed.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) {
+                        Status = $"'{parsed}' is neither on this machine nor https. Attaching over plain http to " +
+                                 "another machine would send the server password in the clear and let anything on " +
+                                 "the path answer in its place - use https, or an SSH tunnel to 127.0.0.1.";
+                        return;
+                    }
+
                     baseUrl = parsed;
                     ServerPassword = plugin.ServerPassword;
                     Status = $"Attaching to {baseUrl}...";
@@ -195,7 +209,7 @@ namespace NINA.Plugin.OpenCode {
                     ServerPassword = server.Password;
                 }
 
-                Uri? sessionUrl;
+                OpenCodeClient.OpenedSession session;
                 using (var probe = new OpenCodeClient(baseUrl, ServerPassword)) {
                     if (!await probe.IsHealthyAsync(CancellationToken.None)) {
                         Status = $"No opencode server answered at {baseUrl}.";
@@ -206,7 +220,7 @@ namespace NINA.Plugin.OpenCode {
                     // Opened here rather than left to the user: the interface otherwise lands
                     // on an empty project picker, which asks them to do the one piece of setup
                     // the plugin already has everything it needs to do.
-                    sessionUrl = await probe.OpenSessionAsync(
+                    session = await probe.OpenSessionAsync(
                         string.IsNullOrWhiteSpace(plugin.AgentName) ? DefaultAgent : plugin.AgentName,
                         CancellationToken.None);
                 }
@@ -215,17 +229,42 @@ namespace NINA.Plugin.OpenCode {
                 // the one thing nobody can see: a session address opens the conversation, the
                 // bare server address opens a project picker, and from the outside those two
                 // failures look identical.
-                if (sessionUrl == null) {
+                if (session.Url == null) {
                     Logger.Warning("OpenCode: could not open a session; the panel will show the project list instead");
                 } else {
-                    Logger.Info($"OpenCode: opening {sessionUrl}");
+                    Logger.Info($"OpenCode: opening {session.Url}");
                 }
 
-                ServerAddress = (sessionUrl ?? baseUrl).ToString();
+                ServerAddress = (session.Url ?? baseUrl).ToString();
                 IsConnected = true;
-                Status = sessionUrl == null
+                Status = session.Url == null
                     ? $"Connected to {baseUrl}"
                     : $"Connected to {baseUrl} - session open";
+
+                // Attaching runs the agent under the configuration of whoever started that
+                // server. The permission policy this plugin generates - the deny floor, the
+                // per-tool rules, the three agents - is simply not in play, and the panel
+                // looks exactly the same as when it is. Said out loud, in the one place
+                // somebody is looking.
+                if (plugin.IsAttachMode) {
+                    var policy = NinaWorkspace.InspectAttached(
+                        session.Directory, baseUrl.IsLoopback,
+                        path => System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path) : null);
+
+                    var note = policy switch {
+                        NinaWorkspace.AttachedPolicy.Ours =>
+                            "this workspace carries this plugin's permission policy",
+                        NinaWorkspace.AttachedPolicy.Foreign =>
+                            "WARNING: that server's workspace does not carry this plugin's permission policy - " +
+                            "the agent runs under whatever rules it was configured with",
+                        _ =>
+                            "WARNING: that server is not on this machine, so its permission policy cannot be checked - " +
+                            "the agent runs under whatever rules it was configured with"
+                    };
+
+                    Logger.Info($"OpenCode: attached to {baseUrl} (working directory {session.Directory ?? "unknown"}) - {note}");
+                    if (policy != NinaWorkspace.AttachedPolicy.Ours) { Status += " - " + note; }
+                }
             } catch (Exception ex) {
                 Logger.Error("OpenCode: connection failed", ex);
                 Status = ex.Message;
