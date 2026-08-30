@@ -18,8 +18,8 @@ using System.Runtime.InteropServices;
 [assembly: Guid("75c31a01-6606-4cff-9703-4ee53c2f4e44")]
 
 // Version information
-[assembly: AssemblyVersion("0.1.0.0")]
-[assembly: AssemblyFileVersion("0.1.0.0")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
 
 // Plugin metadata - aligned with NINA manifest standards
 [assembly: AssemblyMetadata("Identifier", "75c31a01-6606-4cff-9703-4ee53c2f4e44")]

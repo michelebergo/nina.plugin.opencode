@@ -1,7 +1,7 @@
 {
   "Identifier": "75c31a01-6606-4cff-9703-4ee53c2f4e44",
   "Name": "OpenCode",
-  "Version": "0.1.0.0",
+  "Version": "1.0.0.0",
   "MinimumApplicationVersion": "3.0.0.0",
   "Author": "Michele Bergo",
   "Homepage": "https://github.com/michelebergo/nina.plugin.opencode",
@@ -26,10 +26,13 @@
   },
   "ChangeLog": [
     {
-      "Version": "0.1.0.0",
-      "Date": "2026-08-20",
+      "Version": "1.0.0.0",
+      "Date": "2026-08-30",
       "Changes": [
-        "First release. A dock panel that connects to an opencode server you installed yourself, either by launching one locally or by attaching to one already running on another machine",
+        "First published release. A dock panel that connects to an opencode server you installed yourself, either by launching one locally or by attaching to one already running on another machine",
+        "Every permission policy opens with a deny floor, and all 179 tools of the N.I.N.A. MCP server are named as opencode actually offers them - {server}_{tool}. A tool that matches no rule is refused instead of allowed, so one that is misnamed, renamed or added by a later server arrives denied and the agent says so. A test compares the generated rules against the names the pinned server really registers, and the release does not publish if it is red",
+        "The MCP server is fetched at a fixed release tag and the commit that tag points at is verified after checkout; a mismatch means it does not run. Its dependencies are installed from that release's own pinned requirements. Point the options at your own copy and it is used as it is, with the panel saying it is not the verified release",
+        "The server password is offered only when scheme, host and port match the server you configured, and attaching refuses an address that is neither on this machine nor https. An attached server runs under somebody else's configuration, so the panel reports whether that workspace carries this plugin's policy at all",
         "Every permission the agent is waiting on appears at the top of the panel with Allow once, Always and Reject - the agent does not run a command, edit a file or use a tool until somebody answers",
         "Interrupt a running turn at any time",
         "A launched server binds to 127.0.0.1 and carries a password only if you set one. Generating one per launch was tried and removed: the embedded browser never answered the challenge, so the panel took a 401 and stayed blank while an invented credential sat in memory where nobody could type it. What keeps the server private is the address it listens on",

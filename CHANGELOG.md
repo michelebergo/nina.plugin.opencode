@@ -1,8 +1,12 @@
 # Changelog
 
-## 0.1.0.0 - not released
+## 1.0.0.0 - 2026-08-30
 
-First working version. Not published to the N.I.N.A. plugin manager.
+First published version. An earlier build, 0.1.0.0, was submitted to the plugin catalogue on
+21 August and rejected on 25 August: a security audit found that the permission policy it
+generated matched none of the tools it meant to govern, so every agent could do everything.
+That build was never merged and nobody could install it. What the audit found is fixed here,
+and the fixes are what the test suite now holds in place.
 
 - **opencode itself, in a N.I.N.A. dock panel.** The panel hosts opencode's own interface rather
   than re-implementing the conversation in WPF. The editor extension people admire turned out to
