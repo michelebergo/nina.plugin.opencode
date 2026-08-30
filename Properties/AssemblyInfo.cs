@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 
 // General Information
 [assembly: AssemblyTitle("OpenCode")]
-[assembly: AssemblyDescription("Runs your own opencode agent inside NINA, with every tool call it wants to make shown for approval")]
+// This, not AssemblyMetadata("ShortDescription"), is what CreateManifest.ps1 publishes as the
+// plugin's short description - the line people read in the list. The two must say the same thing.
+[assembly: AssemblyDescription("A panel for the opencode agent you already run: ask it to work on your observatory, and approve every tool call before it happens")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Michele Bergo")]
 [assembly: AssemblyProduct("NINA.Plugins")]
