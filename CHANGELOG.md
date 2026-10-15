@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.0.0 - 2026-10-16
+
+Out of the beta channel, and a description that says what the thing is for.
+
+- **Listed for everyone.** 1.0.0.0 went into the catalogue's beta channel, which means it was
+  invisible unless you had already gone into the manager's settings and turned beta plugins on.
+  Seven weeks and ten downloads later, that is the whole story: not a plugin people looked at
+  and passed over, a plugin almost nobody could see.
+- **It now says what it is for.** The old line in the plugin list was "Runs your own opencode
+  agent inside NINA" - which tells you nothing unless you already know what opencode is, and
+  tells everybody else that this is not for them. Both descriptions now open with the problem
+  instead of the mechanism: you are imaging, something looks wrong, and you ask in plain English
+  rather than digging through tabs and log files. The dependency is still stated plainly, just
+  no longer as the first thing a stranger reads.
+- **Checked against the current opencode before shipping.** opencode moved from 1.18.20 to
+  1.19.1 while this sat still, and all three things the permission model rests on were verified
+  against that source: tool names still carry the server prefix, opencode's own default is still
+  to allow anything no rule names, and this plugin's rules are still merged last so they win.
+  The floor itself was tested rather than argued - a generated policy loaded into a running
+  server, then asked what it does with a tool that does not exist. All three agents refuse it.
+
 ## 1.0.0.0 - 2026-08-30
 
 First published version. An earlier build, 0.1.0.0, was submitted to the plugin catalogue on

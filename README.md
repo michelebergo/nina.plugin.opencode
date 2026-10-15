@@ -1,7 +1,13 @@
 # OpenCode for N.I.N.A.
 
-A dock panel that puts **your own [opencode](https://opencode.ai) agent** inside N.I.N.A.
+You are imaging and something is off — guiding went bad an hour ago, the focus drifted, a frame
+came back empty. Instead of digging through tabs and log files yourself, you ask in plain
+English and an agent looks: it reads your equipment state, the night's log and the frames you
+saved, and tells you what it finds. If the fix needs an action — restart guiding, plate solve
+and recentre, stop the sequence — it asks you first. Every time.
 
+The agent is **[opencode](https://opencode.ai)**: a free, open-source AI agent you install
+separately, plus a model for it to use — a paid API key, or one running on your own machine.
 This plugin contains no AI. It has no models, no API keys and no tools of its own. It talks to
 an opencode server that you install and configure, so your providers, your agents, your
 credentials and your MCP servers keep working exactly as they do in your terminal.

@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("OpenCode")]
 // This, not AssemblyMetadata("ShortDescription"), is what CreateManifest.ps1 publishes as the
 // plugin's short description - the line people read in the list. The two must say the same thing.
-[assembly: AssemblyDescription("A panel for the opencode agent you already run: ask it to work on your observatory, and approve every tool call before it happens")]
+[assembly: AssemblyDescription("Ask an AI agent about your rig in plain English: it reads your equipment, logs and frames, and asks before it touches anything")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Michele Bergo")]
 [assembly: AssemblyProduct("NINA.Plugins")]
@@ -20,8 +20,8 @@ using System.Runtime.InteropServices;
 [assembly: Guid("75c31a01-6606-4cff-9703-4ee53c2f4e44")]
 
 // Version information
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 // Plugin metadata - aligned with NINA manifest standards
 [assembly: AssemblyMetadata("Identifier", "75c31a01-6606-4cff-9703-4ee53c2f4e44")]
@@ -38,30 +38,28 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyMetadata("Tags", "AI,Agent,opencode,Automation,MCP,Assistant")]
 
 // Short description (required by NINA plugin manager)
-[assembly: AssemblyMetadata("ShortDescription", "A panel for the opencode agent you already run: ask it to work on your observatory, and approve every tool call before it happens")]
+[assembly: AssemblyMetadata("ShortDescription", "Ask an AI agent about your rig in plain English: it reads your equipment, logs and frames, and asks before it touches anything")]
 
 // Long description
-[assembly: AssemblyMetadata("LongDescription", @"A seat inside NINA for opencode, the open-source AI agent.
+[assembly: AssemblyMetadata("LongDescription", @"WHAT IT IS FOR
+You are imaging and something is off - guiding went bad an hour ago, the focus drifted, a frame came back empty. Instead of digging through tabs and log files yourself, you ask in plain English and the agent looks: it reads your equipment state, the night's log and the frames you saved, and tells you what it finds. If the fix needs an action - restart guiding, plate solve and recentre, stop the sequence - it asks you first. Every time.
 
-This plugin does not contain an AI and does not install one. It talks to an opencode server that you install and configure yourself, which means your models, your keys, your agents and your MCP servers - including the ones that already speak to NINA - all keep working exactly as they do in your terminal.
+WHAT YOU NEED
+The agent itself is opencode (https://opencode.ai): a free, open-source AI agent that you install separately, plus a model for it to use - a paid API key, or one running locally on your own machine. Your choice. This plugin contains no AI and installs none, so your models, your keys and your MCP servers stay yours and keep working exactly as they do in your terminal. If opencode is not installed, the panel says so and does nothing else.
 
 WHAT IT GIVES YOU
-- The agent, in a NINA dock panel: ask a question or hand it a job while you are imaging, without leaving NINA and without a terminal.
-- Every permission request in front of you. opencode asks before it runs a command, edits a file or uses a tool; this panel is where you answer. Nothing runs unseen.
-- The agent's own questions, answered in the same place.
-- Interrupt at any time.
+- The agent in a dock panel: ask a question or hand it a job while you are imaging, without leaving NINA and without a terminal.
+- Every permission request in front of you. It asks before it runs a command, edits a file or uses a tool, and this panel is where you answer. Nothing runs unseen. Interrupt at any time.
+- NINA itself as tools: camera, mount, focuser, filter wheel, guiding, plate solving - 179 of them, through an MCP server the plugin sets up for you.
+- Three agents, differing in what they are allowed to do rather than in tone. observer reads and explains and moves nothing - that is what you get by default. copilot acts, but stops and asks first. autopilot is the unattended one: no prompts anywhere, every permission decided in advance, and a short list of actions that can save a night (restart guiding, plate solve and recentre, stop or start the sequence, set tracking, park the mount, close the shutter). It cannot slew, unpark, open a shutter, throw a switch or connect a device.
+- An observatory log: equipment state changes, autofocus runs and one line per saved frame, one file per night. It moves nothing and calls no model, and the agent can read it - so a diagnosis starts from what happened, not only from what is happening now.
 - Two ways to connect: launch a local opencode server from the executable on this machine, or attach to one already running elsewhere - on the observatory PC, for instance, while you sit at another.
-- Three agents, differing in permissions rather than in tone: observer reads and explains, copilot acts and stops for your approval first, and autopilot is the unattended one - every permission decided in advance, and a short list of actions that recover a night (restart guiding, plate solve and recentre, stop or start the sequence, set tracking, park the mount, close the shutter). It cannot slew, unpark, open a shutter, throw a switch or connect a device.
-- An observatory log: equipment state changes, autofocus runs and one line per saved frame, written to a file per night. It moves nothing and calls no model, and the agent can read it, so a diagnosis starts from what happened rather than from what is happening now.
-
-WHAT YOU NEED FIRST
-opencode, installed by you: https://opencode.ai. The plugin will not download it, will not update it and will not manage it. If opencode is not there, the panel says so and does nothing else.
 
 WHY IT IS SEPARATE FROM THE AI ASSISTANT PLUGIN
-The AI Assistant plugin is self-contained: it holds its own providers, its own keys and its own tool loop. This one holds none of that on purpose. It is for people who already run opencode and would rather have one agent, configured once, reachable from where they work.
+The AI Assistant plugin is self-contained: its own providers, its own keys, its own tool loop. This one holds none of that on purpose. Use it if you already run opencode, or if you would rather configure one agent once and reach it from everywhere instead of keeping a second AI setup inside NINA.
 
 WHAT IT DOES NOT DO YET
-Nothing wakes the agent up. The autopilot agent exists and its policy is enforced, but no event triggers it: there is no classifier deciding what deserves a turn, no counters bounding how often it may act, and no notification when it stops. Chosen by hand it behaves as described; left to itself it does nothing. Unattended operation is being built in that order on purpose - the log first, so that what the agent should react to is decided from what your observatory actually does.")]
+Nothing wakes the agent up. The autopilot agent exists and its policy is enforced, but no event triggers it: you choose it by hand. Unattended operation is being built log-first on purpose, so that what the agent reacts to is decided from what your observatory actually does rather than from a plausible list.")]
 
 // The test project asserts things this plugin has no reason to expose publicly: that the
 // generated permission policy names the tools opencode actually exposes, that a credential
