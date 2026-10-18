@@ -157,6 +157,14 @@ dotnet build NINA.Plugin.OpenCode.sln -c Release
 
 A Debug build copies itself into `%localappdata%\NINA\Plugins\3.0.0\OpenCode\`.
 
-## Licence
+## License and names
 
-MPL-2.0.
+OpenCode for N.I.N.A. is released under the Mozilla Public License 2.0 — see [LICENSE.txt](LICENSE.txt).
+
+**Author: Michele Bergo.** Every copy and every derivative work must keep the copyright
+notice and credit Michele Bergo as the original author, as the license requires. The MPL
+grants no rights to names (section 2.3): "AI Weather", "AI Assistant" and "OpenCode" (for
+N.I.N.A.) are the names of Michele Bergo's plugins, and a fork or derivative work must be
+published under a different name — not one of these nor a confusable variant such as
+"AI Weather Advanced" — with its own plugin identifier (GUID), and must not present Michele
+Bergo as the author of the modified version. See [NOTICE](NOTICE).
