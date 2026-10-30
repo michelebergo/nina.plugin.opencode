@@ -168,3 +168,7 @@ N.I.N.A.) are the names of Michele Bergo's plugins, and a fork or derivative wor
 published under a different name — not one of these nor a confusable variant such as
 "AI Weather Advanced" — with its own plugin identifier (GUID), and must not present Michele
 Bergo as the author of the modified version. See [NOTICE](NOTICE).
+
+## Contributing
+
+Issues and pull requests ask whether an AI tool helped write them or analyse the data behind them. Please answer honestly; it is not a judgement, it tells me how to read what you send.
